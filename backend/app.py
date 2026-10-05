@@ -1,106 +1,90 @@
-import os
-import threading
-from datetime import datetime
-
-import paho.mqtt.client as mqtt
 from flask import Flask, jsonify
 from flask_cors import CORS
-
-MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
-MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
-TOPICO_BASE = "industria"
+import paho.mqtt.client as mqtt
+import os
+from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # permite a WebAR (outra origem) consultar a API
+# O CORS permite que a sua página WebAR faça chamadas fetch() para esta API
+CORS(app) 
 
-# Dados de identificação (cadastro do ativo)
-EQUIPAMENTOS = {
+# 1. Base de Dados em Memória (Dados Estáticos)[cite: 7]
+equipamentos_info = {
     "ROBO-01": {
         "id": "ROBO-01",
-        "tipo": "Robô industrial 6 eixos",
+        "tipo": "Robô Industrial",
         "setor": "Manufatura",
-        "status": "operacional",
+        "status": "operacional"
     }
 }
 
-# Último dado recebido por MQTT, mantido EM MEMÓRIA (se a API reiniciar, zera
-# até chegar nova publicação).
-lock = threading.Lock()
-telemetria = {
-    eid: {"temperatura": None, "vibracao": None, "status": "sem dados", "atualizacao": None}
-    for eid in EQUIPAMENTOS
+# 2. Base de Dados Dinâmica para Telemetria[cite: 7, 8]
+telemetria_data = {
+    "ROBO-01": {
+        "temperatura": 41.8,
+        "vibracao": 2.3,
+        "status": "operando",
+        "atualizacao": datetime.now().strftime("%H:%M:%S")
+    }
 }
-mqtt_conectado = False
 
+# --- CONFIGURAÇÃO MQTT ---
+# A API vai ler estas variáveis do docker-compose.yml
+MQTT_BROKER = os.getenv("MQTT_BROKER_HOST", "localhost")
+MQTT_PORT = int(os.getenv("MQTT_BROKER_PORT", 1883))
 
-# ---------- MQTT ----------
-def on_connect(client, userdata, flags, reason_code, properties=None):
-    global mqtt_conectado
-    mqtt_conectado = not reason_code.is_failure
-    if mqtt_conectado:
-        client.subscribe(f"{TOPICO_BASE}/+/+")  # industria/<id>/<campo>
-        print("MQTT conectado e inscrito em", f"{TOPICO_BASE}/+/+", flush=True)
-
-
-def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
-    global mqtt_conectado
-    mqtt_conectado = False
-    print("MQTT desconectado", flush=True)
-
+def on_connect(client, userdata, flags, rc):
+    print(f"Conectado ao broker MQTT com código {rc}")
+    # Subscreve a todos os sensores de qualquer equipamento (ex: industria/ROBO-01/temperatura)
+    client.subscribe("industria/+/+")
 
 def on_message(client, userdata, msg):
-    partes = msg.topic.split("/")
-    if len(partes) != 3:
-        return
-    _, eid, campo = partes
-    if eid not in telemetria or campo not in ("temperatura", "vibracao", "status"):
-        return
-    valor = msg.payload.decode(errors="ignore").strip()
-    if campo in ("temperatura", "vibracao"):
-        try:
-            valor = float(valor)
-        except ValueError:
-            return  # ignora payload inválido
-    with lock:
-        telemetria[eid][campo] = valor
-        telemetria[eid]["atualizacao"] = datetime.now().strftime("%H:%M:%S")
+    topic_parts = msg.topic.split("/")
+    if len(topic_parts) == 3:
+        _, equip_id, sensor = topic_parts
+        payload = msg.payload.decode("utf-8")
+        
+        # Se o equipamento não existir na telemetria, cria-o
+        if equip_id not in telemetria_data:
+            telemetria_data[equip_id] = {}
+            
+        # Converte valores numéricos se necessário e atualiza
+        if sensor in ["temperatura", "vibracao"]:
+            telemetria_data[equip_id][sensor] = float(payload)
+        else:
+            telemetria_data[equip_id][sensor] = payload
+            
+        # Grava a hora da última atualização
+        telemetria_data[equip_id]["atualizacao"] = datetime.now().strftime("%H:%M:%S")
+        print(f"Dado MQTT recebido: [{equip_id}] {sensor} = {payload}")
 
+# Inicializa o cliente MQTT em background
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
 
-def iniciar_mqtt():
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_connect = on_connect
-    client.on_disconnect = on_disconnect
-    client.on_message = on_message
-    client.reconnect_delay_set(min_delay=1, max_delay=10)
-    # connect_async + loop_start: a API sobe mesmo com o broker fora do ar
-    # e reconecta sozinha quando ele voltar.
-    client.connect_async(MQTT_HOST, MQTT_PORT)
-    client.loop_start()
+try:
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    mqtt_client.loop_start() # Mantém o MQTT a correr sem bloquear o Flask
+except Exception as e:
+    print(f"Aviso: Não foi possível conectar ao MQTT: {e}")
 
+# --- ENDPOINTS FLASK ---
 
-iniciar_mqtt()
+@app.route('/api/equipamentos/<equip_id>', methods=['GET'])
+def get_equipamento(equip_id):
+    dados = equipamentos_info.get(equip_id)
+    if dados:
+        return jsonify(dados)
+    return jsonify({"erro": "Equipamento não encontrado"}), 404
 
+@app.route('/api/equipamentos/<equip_id>/telemetria', methods=['GET'])
+def get_telemetria(equip_id):
+    dados = telemetria_data.get(equip_id)
+    if dados:
+        return jsonify(dados)
+    return jsonify({"erro": "Telemetria não encontrada"}), 404
 
-# ---------- ROTAS ----------
-@app.get("/api/equipamentos/<eid>")
-def identificacao(eid):
-    if eid not in EQUIPAMENTOS:
-        return jsonify({"erro": "equipamento não encontrado"}), 404
-    return jsonify(EQUIPAMENTOS[eid])
-
-
-@app.get("/api/equipamentos/<eid>/telemetria")
-def telemetria_equipamento(eid):
-    if eid not in EQUIPAMENTOS:
-        return jsonify({"erro": "equipamento não encontrado"}), 404
-    with lock:
-        return jsonify(dict(telemetria[eid]))
-
-
-@app.get("/health")
-def health():
-    return jsonify({"api": "ok", "mqtt": "conectado" if mqtt_conectado else "desconectado"})
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == '__main__':
+    # host='0.0.0.0' é obrigatório no Docker para que a API seja acessível fora do contentor
+    app.run(host='0.0.0.0', port=5000)
