@@ -98,6 +98,7 @@ a-scene {
   animation: pulso 1.8s infinite;
   /* Escondido até o target ser encontrado (classe .visible) */
   display: none;
+  user-select: none; -webkit-user-select: none;
 }
 
 .hotspot.visible {
@@ -160,7 +161,7 @@ a-scene {
   font-size: 0.92rem;
 }
 
-#info-detail {
+#info-panel #info-detail {
   color: var(--cor-texto-suave);
   font-size: 0.82rem;
 }
@@ -186,3 +187,8 @@ a-scene {
 }
 
 /* Modo escuro/claro do sistema não altera a UI: ela fica sobre a câmera. */
+@media (prefers-reduced-motion: reduce) {
+  .hotspot {
+    animation: none;
+  }
+}

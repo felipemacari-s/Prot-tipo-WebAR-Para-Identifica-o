@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let tracking = false;
   let pollTimer = null;
+  let telemetryActive = false;  
 
   /* ---------- Conteúdo estático (didático) ---------- */
 
@@ -58,6 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function stopPolling() {
+    telemetryActive = false;
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
@@ -74,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchTelemetry() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    
 
     try {
       const response = await fetch(
@@ -86,6 +89,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const data = await response.json();
+      if (!telemetryActive) return; 
+
 
       showPanel(
         `Telemetria — ${EQUIPAMENTO_ID}`,
@@ -93,11 +98,14 @@ document.addEventListener("DOMContentLoaded", () => {
         `Última atualização: ${data.atualizacao}`
       );
     } catch (error) {
+      if (!telemetryActive) return; 
+      const fmt = (v, un = "") => (v == null ? "—" : v + un);
+
       // Tratamento de indisponibilidade: a RA continua funcionando.
       showPanel(
         `Telemetria — ${EQUIPAMENTO_ID}`,
-        "Serviço de telemetria indisponível no momento.",
-        "Verifique se a API está em execução. Nova tentativa automática em instantes."
+         `Status: ${fmt(data.status)} | Temperatura: ${fmt(data.temperatura, " °C")} | Vibração: ${fmt(data.vibracao, " mm/s")}`,
+  `Última atualização: ${fmt(data.atualizacao)}`
       );
     } finally {
       clearTimeout(timeoutId);
@@ -106,9 +114,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function startTelemetry() {
     stopPolling();
+    telemetryActive = true;
     fetchTelemetry();
+    
     pollTimer = setInterval(fetchTelemetry, POLLING_MS);
   }
+  
 
   /* ---------- Hotspots ---------- */
 
@@ -214,3 +225,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateHotspotPositions();
 });
+
+
+
+
+
+
+/*O que falta:
+*Gerar o robo01.mind no MindAR Target Compiler e colocá-lo em frontend/assets/targets/.
+Ajustar as posições dos hotspots em HOTSPOTS, no app.js. As coordenadas atuais são só um ponto de partida, de -0.5 a 0.5 em relação ao centro da imagem.
+Ajustar API_BASE no app.js. No celular com HTTPS, a API também precisa estar em HTTPS (túnel ngrok/cloudflared, por exemplo), senão o navegador bloqueia a chamada.
+Criar docs/arquitetura.png.
+No teste T06, pare o simulador antes de publicar o valor manual, senão ele sobrescreve em 3 s.*/
