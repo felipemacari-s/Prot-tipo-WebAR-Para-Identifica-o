@@ -16,21 +16,21 @@ document.addEventListener("DOMContentLoaded", () => {
         painel.classList.remove("oculto");
     }
 
-    // --- HOTSPOTS ESTÁTICOS ---[cite: 7]
-    document.getElementById("hs-identificacao").addEventListener("click", () => {
+// --- HOTSPOTS ESTÁTICOS ---
+    document.getElementById("hs-identificacao").addEventListener("mousedown", () => {
         mostrarPainel("Identificação", "<b>Ativo:</b> Robô Industrial (ROBO-01)<br><b>Setor:</b> Manufatura Avançada<br><b>Função:</b> Soldadura e montagem.");
     });
 
-    document.getElementById("hs-componentes").addEventListener("click", () => {
+    document.getElementById("hs-componentes").addEventListener("mousedown", () => {
         mostrarPainel("Componentes", "<b>Braço Articulado:</b> 6 eixos de liberdade.<br><b>Garra/Efetuador:</b> Sistema pneumático ativo.");
     });
 
-    document.getElementById("hs-manutencao").addEventListener("click", () => {
+    document.getElementById("hs-manutencao").addEventListener("mousedown", () => {
         mostrarPainel("Manutenção", "<b>Ação Recomendada:</b> Lubrificação das juntas a cada 500 horas.<br><b>Última revisão:</b> 15/09/2026.");
     });
 
-    // --- HOTSPOT DINÂMICO (API FLASK + MQTT) ---[cite: 8]
-    document.getElementById("hs-monitoramento").addEventListener("click", () => {
+    // --- HOTSPOT DINÂMICO (API FLASK + MQTT) ---
+    document.getElementById("hs-monitoramento").addEventListener("mousedown", () => {
         mostrarPainel("Monitorização (Ao Vivo)", "A consultar serviços...");
         carregarTelemetria("ROBO-01");
     });
