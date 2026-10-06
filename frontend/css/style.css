@@ -1,6 +1,15 @@
-/* ================================================================
-1. CONFIGURAÇÃO GERAL
-================================================================ */
+:root {
+  --cor-fundo: rgba(15, 23, 42, 0.88);
+  --cor-borda: rgba(255, 255, 255, 0.18);
+  --cor-texto: #f8fafc;
+  --cor-texto-suave: #cbd5e1;
+  --cor-destaque: #22c55e;
+  --cor-telemetria: #f59e0b;
+}
+
+* {
+  box-sizing: border-box;
+}
 
 html,
 body {
@@ -8,215 +17,164 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: Arial, Helvetica, sans-serif;
-  /*
-* IMPORTANTE:
-* NÃO colocar background: #000 aqui.
-* O vídeo da câmera precisa permanecer visível.
-*/
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--cor-texto);
 }
 
-/* ================================================================
-2. CENA A-FRAME
-================================================================ */
+/* A cena do A-Frame ocupa a tela toda */
 a-scene {
-  position: absolute !important;
+  position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
 }
 
-/* ================================================================
-3. HUD SUPERIOR
-================================================================ */
-#hud {
+/* Camada de interface acima do vídeo/canvas.
+   pointer-events: none deixa o toque passar, exceto nos filhos interativos. */
+#ui {
   position: fixed;
-  top: 0;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* ---------- Barra superior e status ---------- */
+
+#topbar {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
-  z-index: 99999; /* <-- AUMENTE O Z-INDEX PARA FICAR NO TOPO ABSOLUTO */
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
   padding: 12px 14px;
-  color: #ffffff;
-  background:
-    linear-gradient(180deg,
-      rgba(3, 18, 33, 0.88),
-      rgba(3, 18, 33, 0.25));
-  pointer-events: none;
 }
 
-.hud-text {
-  display: grid;
-  gap: 3px;
-}
-
-.hud-text strong {
-  font-size: 14px;
-}
-
-.hud-text span {
-  font-size: 12px;
-}
-
-#badge {
-  padding: 7px 10px;
-  border:
-    1px solid rgba(255, 255, 255, 0.45);
+#badge,
+#equip-id {
+  padding: 6px 12px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  border: 1px solid var(--cor-borda);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
-/* ================================================================
-4. CAMADA DOS HOTSPOTS
-================================================================ */
-#hotspot-layer {
-  position: fixed;
-  inset: 0;
-  /*
-* Fica acima da cena A-Frame.
-*/
-  z-index: 40;
-  /*
-* A camada vazia não bloqueia a câmera.
-* Cada botão reativa pointer-events individualmente.
-*/
-  pointer-events: none;
-}
-
-/* ================================================================
-5. BOTÕES / HOTSPOTS
-================================================================ */
-.hotspot {
+#status {
   position: absolute;
-  /*
-* Antes do targetFound os botões permanecem ocultos.
-*/
-  display: none;
-  width: 54px;
-  height: 54px;
-  /*
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--cor-borda);
+  font-size: 0.85rem;
+  text-align: center;
+}
 
-Realidade Aumentada — Manual Interativo do Torno CNC | Roteiro do Aluno
+/* ---------- Hotspots ---------- */
 
-* O JavaScript posiciona left/top no centro do hotspot.
-*/
-  transform:
-    translate(-50%, -50%);
-  border:
-    3px solid #ffffff;
+.hotspot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border: 2px solid #fff;
   border-radius: 50%;
-  background: #1565c0;
-  color: #ffffff;
-  font-size: 20px;
-  font-weight: 800;
-  box-shadow:
-    0 0 0 5px rgba(21, 101, 192, 0.28),
-    0 6px 20px rgba(0, 0, 0, 0.35);
-  /*
-* DIFERENÇA IMPORTANTE:
-* O botão precisa receber o toque.
-*/
-  pointer-events: auto;
-  /*
-* Melhora o comportamento do toque em navegadores móveis.
-*/
-  touch-action: manipulation;
+  background: var(--cor-destaque);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  animation: pulso 1.8s infinite;
+  /* Escondido até o target ser encontrado (classe .visible) */
+  display: none;
+  user-select: none; -webkit-user-select: none;
 }
 
-/*
-* Esta classe é adicionada pelo JavaScript quando o target é encontrado.
-*/
 .hotspot.visible {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/*
-* Hotspot de segurança recebe destaque vermelho.
-*/
-.hotspot-danger {
-  background: #d32f2f;
-  box-shadow:
-    0 0 0 5px rgba(211, 47, 47, 0.28),
-    0 6px 20px rgba(0, 0, 0, 0.35);
+.hotspot-telemetria {
+  background: var(--cor-telemetria);
+  animation-name: pulso-telemetria;
 }
 
-/*
-* Feedback visual durante o toque.
-*/
-.hotspot:active {
-  transform:
-    translate(-50%, -50%) scale(0.90);
+#info-panel {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 16px 18px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--cor-borda);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
 }
 
-/* ================================================================
-6. PAINEL DE INFORMAÇÕES
-================================================================ */
+#info-panel h2 {
+  margin: 0 30px 8px 0;
+  font-size: 1.1rem;
+}
+
+#info-panel p {
+  margin: 0 0 6px;
+  line-height: 1.4;
+  font-size: 0.92rem;
+}
+
+#info-panel #info-detail {
+  color: var(--cor-texto-suave);
+  font-size: 0.82rem;
+}
+
+#close-panel {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cor-texto);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
 .hidden {
   display: none !important;
 }
 
-.info-panel {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform:
-    translateX(-50%);
-  z-index: 60;
-  width:
-    min(92vw, 520px);
-  padding:
-    18px 48px 18px 18px;
-  color: #eef7ff;
-  background:
-    rgba(5, 20, 35, 0.96);
-  border:
-    1px solid rgba(125, 211, 252, 0.65);
-  border-radius: 16px;
-  box-shadow:
-    0 14px 42px rgba(0, 0, 0, 0.38);
+/* Modo escuro/claro do sistema não altera a UI: ela fica sobre a câmera. */
+@media (prefers-reduced-motion: reduce) {
+  .hotspot {
+    animation: none;
+  }
 }
 
-.info-panel small {
-  color: #7dd3fc;
-  font-weight: 700;
+
+/* Garante que o canvas 3D tem prioridade nos toques */
+.a-canvas {
+    pointer-events: auto !important;
 }
 
-.info-panel h2 {
-  margin:
-    6px 0 8px;
-  font-size: 22px;
-}
-
-.info-panel p {
-  margin: 0;
-  line-height: 1.45;
-}
-
-.info-panel .detail {
-  margin-top: 10px;
-  color: #cbd5e1;
-  font-size: 13px;
-}
-
-/* ================================================================
-7. BOTÃO DE FECHAR O PAINEL
-================================================================ */
-.close-button {
-  position: absolute;
-  right: 10px;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  color: #ffffff;
-  background:
-    rgba(255, 255, 255, 0.14);
-  font-size: 22px;
-  pointer-events: auto;
-  cursor: pointer;
+/* Impede que a interface do MindAR "roube" os toques no telemóvel */
+.mindar-ui-overlay, 
+#mindar-ui-scanning,
+#mindar-ui-loading {
+    pointer-events: none !important;
 }
