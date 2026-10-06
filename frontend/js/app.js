@@ -5,13 +5,11 @@ AFRAME.registerComponent('ar-event-listener', {
         const status = document.querySelector("#status");
         const badge = document.querySelector("#badge");
 
-        badge.addEventListener("pointerup", (event) => {
-            event.preventDefault(); // Evita comportamentos duplos no mobile
-
+        badge.addEventListener("click", (event) => { // <-- Mude aqui
+            event.preventDefault(); 
             status.textContent = "Acessando câmera...";
             badge.textContent = "INICIANDO...";
             badge.disabled = true;
-
             scene.systems["mindar-image-system"].start();
         });
 
@@ -243,7 +241,7 @@ document.addEventListener(
         hotspots.forEach(
             (button) => {
                 button.addEventListener(
-                    "pointerup",
+                    "click",
                     (event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -266,7 +264,7 @@ document.addEventListener(
         7. BOTÃO DE FECHAR
         ========================================================= */
         closeButton.addEventListener(
-            "pointerup",
+            "click",
             (event) => {
                 event.preventDefault();
                 hideInformation();

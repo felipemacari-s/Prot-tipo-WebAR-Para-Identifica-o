@@ -1,9 +1,6 @@
 /* ================================================================
 1. CONFIGURAÇÃO GERAL
 ================================================================ */
-* {
-  box-sizing: border-box;
-}
 
 html,
 body {
@@ -37,7 +34,7 @@ a-scene {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: 99999; /* <-- AUMENTE O Z-INDEX PARA FICAR NO TOPO ABSOLUTO */
   display: flex;
   justify-content: space-between;
   align-items: center;
