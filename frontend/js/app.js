@@ -24,7 +24,6 @@ AFRAME.registerComponent('hotspot-clicavel', {
 
         // Escuta tanto o clique do rato (PC) como o toque no ecrã (Telemóvel)
         this.el.addEventListener('click', aoTocar);
-        this.el.addEventListener('touchstart', aoTocar);
     }
 });
 
