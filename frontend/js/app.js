@@ -4,7 +4,10 @@ AFRAME.registerComponent('hotspot-clicavel', {
         tipo: { type: 'string' }
     },
     init: function () {
-        this.el.addEventListener('click', () => {
+        const aoTocar = (evento) => {
+            // Impede comportamentos padrão que podem cancelar o toque
+            evento.preventDefault(); 
+            
             const tipo = this.data.tipo;
             
             if (tipo === 'identificacao') {
@@ -17,7 +20,11 @@ AFRAME.registerComponent('hotspot-clicavel', {
                 mostrarPainel("Monitorização (Ao Vivo)", "A consultar serviços...");
                 carregarTelemetria("ROBO-01");
             }
-        });
+        };
+
+        // Escuta tanto o clique do rato (PC) como o toque no ecrã (Telemóvel)
+        this.el.addEventListener('click', aoTocar);
+        this.el.addEventListener('touchstart', aoTocar);
     }
 });
 

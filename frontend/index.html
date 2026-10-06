@@ -20,7 +20,8 @@
     </div>
 
     <!-- Cena WebAR -->
-    <a-scene mindar-image="imageTargetSrc: ./assets/targets/robo.mind;" 
+<!-- Adicionámos uiScanning: no; e uiLoading: no; para limpar a interface -->
+    <a-scene mindar-image="imageTargetSrc: ./assets/targets/robo.mind; uiScanning: no; uiLoading: no;" 
              color-space="sRGB" 
              renderer="colorManagement: true, physicallyCorrectLights" 
              vr-mode-ui="enabled: false" 
@@ -28,7 +29,7 @@
         
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
         
-        <!-- O cursor (raycaster) movido para FORA da câmara para detetar o ecrã tátil -->
+        <!-- O raycaster usa 'mouse' (que o A-Frame converte nativamente a partir do toque) -->
         <a-entity cursor="fuse: false; rayOrigin: mouse;" raycaster="objects: .interativo"></a-entity>
 
         <a-entity mindar-image-target="targetIndex: 0" id="target-robo">

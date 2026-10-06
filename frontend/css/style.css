@@ -165,3 +165,16 @@ a-scene {
     animation: none;
   }
 }
+
+
+/* Garante que o canvas 3D tem prioridade nos toques */
+.a-canvas {
+    pointer-events: auto !important;
+}
+
+/* Impede que a interface do MindAR "roube" os toques no telemóvel */
+.mindar-ui-overlay, 
+#mindar-ui-scanning,
+#mindar-ui-loading {
+    pointer-events: none !important;
+}
