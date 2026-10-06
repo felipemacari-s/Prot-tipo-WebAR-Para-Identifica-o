@@ -1,4 +1,5 @@
 :root {
+  --cor-fundo: rgba(15, 23, 42, 0.88);
   --cor-borda: rgba(255, 255, 255, 0.18);
   --cor-texto: #f8fafc;
   --cor-texto-suave: #cbd5e1;
@@ -53,7 +54,6 @@ a-scene {
 #equip-id {
   padding: 6px 12px;
   border-radius: 999px;
-  background: var(--cor-fundo);
   border: 1px solid var(--cor-borda);
   font-size: 0.75rem;
   font-weight: 600;
@@ -69,7 +69,6 @@ a-scene {
   margin: 0;
   padding: 8px 14px;
   border-radius: 10px;
-  background: var(--cor-fundo);
   border: 1px solid var(--cor-borda);
   font-size: 0.85rem;
   text-align: center;
@@ -143,7 +142,6 @@ a-scene {
   margin: 0 auto;
   padding: 16px 18px 18px;
   border-radius: 16px;
-  background: var(--cor-fundo);
   border: 1px solid var(--cor-borda);
   backdrop-filter: blur(6px);
   pointer-events: auto;
