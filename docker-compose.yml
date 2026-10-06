@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 1. Broker MQTT
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+      - "9001:9001" # Opcional: para WebSockets
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  # 2. API Flask
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: flask_api
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mqtt-broker
+    environment:
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    restart: unless-stopped
+
+  # 3. Simulador de Telemetria
+  simulator:
+    build:
+      context: ./simulator
+      # Se não tiver um Dockerfile aqui, pode usar uma imagem python e correr o script
+      # dockerfile: Dockerfile 
+    container_name: mqtt_simulator
+    depends_on:
+      - mqtt-broker
+    environment:
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    restart: unless-stopped

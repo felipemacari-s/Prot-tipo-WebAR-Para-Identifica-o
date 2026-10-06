@@ -1,216 +1,500 @@
-document.addEventListener("DOMContentLoaded", () => {
-  /* ---------- Configuração ---------- */
+// Registra o componente ANTES da cena ser renderizada
+AFRAME.registerComponent('ar-event-listener', {
+    init: function () {
+        const scene = this.el;
+        const status = document.querySelector("#status");
+        const badge = document.querySelector("#badge");
 
-  // Endereço da API Flask. No celular, "localhost" aponta para o próprio
-  // celular: use o IP do computador na rede (ex.: http://192.168.0.10:5000).
-  const API_BASE = "http://localhost:5000";
-  const EQUIPAMENTO_ID = "ROBO-01";
-  const POLLING_MS = 3000;
-  const TIMEOUT_MS = 4000;
+        badge.addEventListener("pointerup", (event) => {
+            event.preventDefault(); // Evita comportamentos duplos no mobile
 
-  /* ---------- Elementos ---------- */
+            status.textContent = "Acessando câmera...";
+            badge.textContent = "INICIANDO...";
+            badge.disabled = true;
 
-  const scene = document.querySelector("#ar-scene");
-  const target = document.querySelector("#target");
-  const cameraElement = document.querySelector("#ar-camera");
+            scene.systems["mindar-image-system"].start();
+        });
 
-  const status = document.querySelector("#status");
-  const badge = document.querySelector("#badge");
-  const panel = document.querySelector("#info-panel");
-  const panelTitle = document.querySelector("#info-title");
-  const panelText = document.querySelector("#info-text");
-  const panelDetail = document.querySelector("#info-detail");
-  const closeButton = document.querySelector("#close-panel");
+        // Escuta quando a câmera liga
+        scene.addEventListener("arReady", () => {
+            status.textContent = "Câmera pronta. Aponte para a imagem.";
+            badge.textContent = "PROCURANDO ALVO";
+            console.log("EVENTO: arReady disparado!"); // Para você ver no Eruda
+        });
 
-  const hotspots = Array.from(document.querySelectorAll(".hotspot"));
-
-  let tracking = false;
-  let pollTimer = null;
-
-  /* ---------- Conteúdo estático (didático) ---------- */
-
-  const information = {
-    base: {
-      title: "Base e armário de controle",
-      text: "Controlador: modelo XYZ-100, alimentação trifásica 380 V, firmware v2.4.1.",
-      detail: "A base deve ser ancorada ao piso conforme a especificação do fabricante."
-    },
-    braco: {
-      title: "Braço articulado e punho",
-      text: "6 eixos, alcance máximo de 1,4 m e carga útil de 10 kg.",
-      detail: "A graxa/óleo das redutoras deve ser substituída no intervalo indicado no manual."
-    },
-    efetuador: {
-      title: "Efetuador final / garra",
-      text: "Garra pneumática com pressão de acionamento de 6 bar e troca rápida de ferramenta.",
-      detail: "Despressurize o circuito e bloqueie o robô antes de trocar a ferramenta."
+        // Escuta se houver erro
+        scene.addEventListener("arError", () => {
+            status.textContent = "Erro ao ligar a câmera.";
+            badge.textContent = "ERRO";
+            console.log("EVENTO: arError disparado!");
+        });
     }
-    // "telemetria" é dinâmico: vem da API Flask.
-  };
-
-  /* ---------- Painel ---------- */
-
-  function showPanel(title, text, detail) {
-    panelTitle.textContent = title;
-    panelText.textContent = text;
-    panelDetail.textContent = detail;
-    panel.classList.remove("hidden");
-  }
-
-  function stopPolling() {
-    if (pollTimer !== null) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
-  }
-
-  function hideInformation() {
-    stopPolling();
-    panel.classList.add("hidden");
-  }
-
-  /* ---------- Telemetria (API Flask) ---------- */
-
-  async function fetchTelemetry() {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-    try {
-      const response = await fetch(
-        `${API_BASE}/api/equipamentos/${EQUIPAMENTO_ID}/telemetria`,
-        { signal: controller.signal }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      showPanel(
-        `Telemetria — ${EQUIPAMENTO_ID}`,
-        `Status: ${data.status} | Temperatura: ${data.temperatura} °C | Vibração: ${data.vibracao} mm/s`,
-        `Última atualização: ${data.atualizacao}`
-      );
-    } catch (error) {
-      // Tratamento de indisponibilidade: a RA continua funcionando.
-      showPanel(
-        `Telemetria — ${EQUIPAMENTO_ID}`,
-        "Serviço de telemetria indisponível no momento.",
-        "Verifique se a API está em execução. Nova tentativa automática em instantes."
-      );
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  function startTelemetry() {
-    stopPolling();
-    fetchTelemetry();
-    pollTimer = setInterval(fetchTelemetry, POLLING_MS);
-  }
-
-  /* ---------- Hotspots ---------- */
-
-  function handleHotspot(topicName) {
-    stopPolling();
-
-    if (topicName === "telemetria") {
-      startTelemetry();
-      return;
-    }
-
-    const selected = information[topicName];
-    if (!selected) {
-      return;
-    }
-    showPanel(selected.title, selected.text, selected.detail);
-  }
-
-  hotspots.forEach((button) => {
-    button.addEventListener("pointerup", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      handleHotspot(button.dataset.topic);
-    });
-  });
-
-  closeButton.addEventListener("pointerup", (event) => {
-    event.preventDefault();
-    hideInformation();
-  });
-
-  /* ---------- Eventos da cena e do target ---------- */
-
-  scene.addEventListener("arReady", () => {
-    status.textContent = "Câmera pronta. Aponte para a imagem do robô.";
-    badge.textContent = "PROCURANDO ALVO";
-  });
-
-  scene.addEventListener("arError", () => {
-    status.textContent = "Não foi possível iniciar a câmera.";
-    badge.textContent = "ERRO";
-  });
-
-  target.addEventListener("targetFound", () => {
-    tracking = true;
-    status.textContent = "Robô reconhecido. Toque em um ponto numerado.";
-    badge.textContent = "● RA ATIVA";
-    hotspots.forEach((button) => button.classList.add("visible"));
-  });
-
-  target.addEventListener("targetLost", () => {
-    tracking = false;
-    status.textContent = "Alvo perdido. Aponte novamente para a imagem.";
-    badge.textContent = "PROCURANDO ALVO";
-    hotspots.forEach((button) => button.classList.remove("visible"));
-    hideInformation();
-  });
-
-  /* ---------- Projeção 3D -> tela ---------- */
-
-  function updateHotspotPositions() {
-    requestAnimationFrame(updateHotspotPositions);
-
-    if (!tracking) {
-      return;
-    }
-
-    const camera = cameraElement.getObject3D("camera");
-    if (!camera || !target.object3D) {
-      return;
-    }
-
-    target.object3D.updateMatrixWorld(true);
-    camera.updateMatrixWorld(true);
-
-    hotspots.forEach((button) => {
-      const localPoint = new THREE.Vector3(
-        Number(button.dataset.x),
-        Number(button.dataset.y),
-        Number(button.dataset.z)
-      );
-
-      const worldPoint = target.object3D.localToWorld(localPoint);
-      const projectedPoint = worldPoint.clone().project(camera);
-
-      const screenX = (projectedPoint.x * 0.5 + 0.5) * window.innerWidth;
-      const screenY = (-projectedPoint.y * 0.5 + 0.5) * window.innerHeight;
-
-      button.style.left = `${screenX}px`;
-      button.style.top = `${screenY}px`;
-
-      const insideScreen =
-        projectedPoint.z > -1 &&
-        projectedPoint.z < 1 &&
-        screenX > -80 &&
-        screenX < window.innerWidth + 80 &&
-        screenY > -80 &&
-        screenY < window.innerHeight + 80;
-
-      button.style.visibility = insideScreen ? "visible" : "hidden";
-    });
-  }
-
-  updateHotspotPositions();
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+    // Seleciona todos os botões que são hotspots
+    const hotspots = document.querySelectorAll(".hotspot");
+
+    hotspots.forEach(hotspot => {
+        hotspot.addEventListener("click", (e) => {
+            // Captura as informações do botão clicado a partir dos atributos HTML
+            const componenteNome = hotspot.getAttribute("aria-label");
+            const topico = hotspot.getAttribute("data-topic");
+
+            // Envia os dados para o backend Flask silenciosamente
+            fetch("/registro", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                // Formata os dados como se fossem enviados por um formulário HTML
+                body: new URLSearchParams({
+                    "componente": componenteNome,
+                    "observacao": `Interação no hotspot do tópico: ${topico}`
+                })
+            })
+                .then(response => {
+                    if (response.ok) {
+                        console.log(`Sucesso: Entrada registrada para ${componenteNome}`);
+                        // Opcional: Você pode adicionar um aviso visual rápido (toast) aqui
+                    } else {
+                        console.error("Erro ao registrar a entrada no servidor.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Erro de comunicação com o servidor:", error);
+                });
+
+            // --------------------------------------------------------
+            // LÓGICA DO PAINEL DE INFORMAÇÕES (Mantenha a sua existente)
+            // --------------------------------------------------------
+            const infoPanel = document.getElementById("info-panel");
+            const infoTitle = document.getElementById("info-title");
+
+            infoTitle.textContent = componenteNome;
+            infoPanel.classList.remove("hidden");
+        });
+    });
+
+    // Lógica para fechar o painel
+    document.getElementById("close-panel").addEventListener("click", () => {
+        document.getElementById("info-panel").classList.add("hidden");
+    });
+});
+
+function atualizarDadosSensor() {
+    fetch("/api/sensor")
+        .then(response => response.json())
+        .then(data => {
+            if (data.temperatura !== "--") {
+                const statusElement = document.getElementById("status");
+                if (statusElement) {
+                    statusElement.textContent = `Temperatura do Motor: ${data.temperatura} °${data.unidade}`;
+                    // Pode adicionar lógica para mudar a cor se a temperatura passar dos 28 graus, por exemplo:
+                    if (data.temperatura > 28) {
+                        statusElement.style.color = "#ff4444";
+                        statusElement.style.fontWeight = "bold";
+                    } else {
+                        statusElement.style.color = "#ffffff";
+                    }
+                }
+            }
+        })
+        .catch(error => console.error("Erro ao buscar dados do sensor:", error));
+}
+
+// Inicia o ciclo de atualização a cada 2 segundos (2000 ms)
+setInterval(atualizarDadosSensor, 2000);
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        /* =========================================================
+        1. REFERÊNCIAS À CENA DE RA
+        ========================================================= */
+        const scene =
+            document.querySelector("#ar-scene");
+        const target =
+            document.querySelector("#target");
+        const cameraElement =
+            document.querySelector("#ar-camera");
+
+        /* =========================================================
+        2. REFERÊNCIAS À INTERFACE HTML
+        ========================================================= */
+        const status =
+            document.querySelector("#status");
+        const badge =
+            document.querySelector("#badge");
+        const panel =
+            document.querySelector("#info-panel");
+        const panelTitle =
+            document.querySelector("#info-title");
+        const panelText =
+            document.querySelector("#info-text");
+        const panelDetail =
+            document.querySelector("#info-detail");
+        const closeButton =
+            document.querySelector("#close-panel");
+
+        /*
+        * Busca os quatro BOTÕES HTML.
+        *
+        * Se este resultado estiver vazio, significa que
+        * index.html e app.js estão em versões incompatíveis.
+        */
+        const hotspots =
+            Array.from(
+                document.querySelectorAll(".hotspot")
+            );
+
+        /*
+        * Guarda se o MindAR está rastreando o target.
+        */
+        let tracking =
+            false;
+
+        /* =========================================================
+        3. BASE DE DADOS DIDÁTICA
+        ========================================================= */
+        const information = {
+            cabeca: {
+                title:
+                    "Controlador do Robô",
+                text:
+                    "O controlador é o 'cérebro' do sistema. Ele processa o programa de automação e envia os comandos de movimento para os servo motores.",
+                detail:
+                    "Garante a precisão das trajetórias e faz a comunicação com outros equipamentos da célula de manufatura."
+            },
+            tronco: {
+                title:
+                    "Base e Coluna",
+                text:
+                    "A base fixa o robô firmemente ao piso, enquanto a coluna suporta o peso da estrutura e permite o eixo de rotação principal.",
+                detail:
+                    "Uma fixação rígida e estável é essencial para absorver inércias e garantir a repetibilidade dos movimentos."
+            },
+            braco: {
+                title:
+                    "Braço Manipulador",
+                text:
+                    "Composto por elos e articulações, o braço proporciona os graus de liberdade necessários para posicionar a ferramenta no espaço.",
+                detail:
+                    "A geometria e o comprimento do braço definem o alcance e o volume de trabalho (envelope) do robô."
+            },
+            mao: {
+                title:
+                    "Efetor Final (Garra / Ferramenta)",
+                text:
+                    "Acoplado na extremidade do braço, é o dispositivo que interage diretamente com a peça, como garras mecânicas, tochas de solda ou ventosas.",
+                detail:
+                    "O efetor final é sempre customizado de acordo com a aplicação específica da linha de produção."
+            }
+        };
+
+        /* =========================================================
+        4. FUNÇÃO QUE ABRE O PAINEL
+        ========================================================= */
+        function showInformation(topicName) {
+            const selected =
+                information[topicName];
+
+            /*
+            * Proteção contra data-topic inexistente.
+            */
+            if (!selected) {
+                return;
+            }
+
+            panelTitle.textContent =
+                selected.title;
+            panelText.textContent =
+
+
+                selected.text;
+            panelDetail.textContent =
+                selected.detail;
+
+            /*
+            * Remove hidden e mostra o painel.
+            */
+            panel.classList.remove(
+                "hidden"
+            );
+        }
+
+        /* =========================================================
+        5. FUNÇÃO QUE FECHA O PAINEL
+        ========================================================= */
+        function hideInformation() {
+            panel.classList.add(
+                "hidden"
+            );
+        }
+
+        /* =========================================================
+        6. EVENTOS DOS HOTSPOTS
+        pointerup funciona com:
+        - mouse;
+        - toque;
+        - caneta.
+        Não dependemos mais do raycaster para o clique.
+        ========================================================= */
+        hotspots.forEach(
+            (button) => {
+                button.addEventListener(
+                    "pointerup",
+                    (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        const topicName =
+                            button.dataset.topic;
+
+                        showInformation(
+                            topicName
+                        );
+                    }
+                );
+            }
+        );
+
+        /* =========================================================
+        
+        Realidade Aumentada — Manual Interativo do Torno CNC | Roteiro do Aluno
+        
+        7. BOTÃO DE FECHAR
+        ========================================================= */
+        closeButton.addEventListener(
+            "pointerup",
+            (event) => {
+                event.preventDefault();
+                hideInformation();
+            }
+        );
+
+        /* =========================================================
+        8. MINDAR PRONTO
+        ========================================================= */
+        scene.addEventListener(
+            "arReady",
+            () => {
+                status.textContent =
+                    "Câmera pronta. Aponte para a imagem do torno.";
+                badge.textContent =
+                    "PROCURANDO ALVO";
+            }
+        );
+
+        /* =========================================================
+        9. ERRO AO INICIAR RA
+        ========================================================= */
+        scene.addEventListener(
+            "arError",
+            () => {
+                status.textContent =
+                    "Não foi possível iniciar a câmera.";
+                badge.textContent =
+                    "ERRO";
+            }
+        );
+
+        /* =========================================================
+        10. TARGET ENCONTRADO
+        ========================================================= */
+        target.addEventListener(
+            "targetFound",
+            () => {
+                tracking =
+                    true;
+
+                status.textContent =
+                    "Torno reconhecido. Toque em um ponto numerado.";
+                badge.textContent =
+                    "● RA ATIVA";
+                /*
+                * Agora os botões podem aparecer.
+                */
+                hotspots.forEach(
+                    (button) => {
+                        button.classList.add(
+                            "visible"
+                        );
+                    }
+                );
+            }
+        );
+
+        /* =========================================================
+        11. TARGET PERDIDO
+        ========================================================= */
+        target.addEventListener(
+            "targetLost",
+            () => {
+                tracking =
+                    false;
+
+                status.textContent =
+                    "Alvo perdido. Aponte novamente para a imagem.";
+                badge.textContent =
+                    "PROCURANDO ALVO";
+
+                hotspots.forEach(
+                    (button) => {
+                        button.classList.remove(
+                            "visible"
+                        );
+                    }
+                );
+
+                hideInformation();
+            }
+        );
+
+        /* =========================================================
+        12. CONVERTER POSIÇÃO 3D EM POSIÇÃO 2D
+        Cada botão possui:
+        data-x
+        data-y
+        data-z
+        Essas coordenadas representam um ponto local no target.
+        O processo é:
+        posição local
+        ↓
+        posição no mundo 3D
+        
+        Realidade Aumentada — Manual Interativo do Torno CNC | Roteiro do Aluno
+        
+        ↓
+        projeção pela câmera
+        ↓
+        pixels da tela
+        ========================================================= */
+        function updateHotspotPositions() {
+            /*
+            * Agenda a próxima atualização.
+            */
+            requestAnimationFrame(
+                updateHotspotPositions
+            );
+
+            /*
+            * Não precisamos calcular nada
+            * enquanto o target não estiver ativo.
+            */
+            if (!tracking) {
+                return;
+            }
+
+            /*
+            * Obtém a câmera Three.js interna do A-Frame.
+            */
+            const camera =
+                cameraElement.getObject3D(
+                    "camera"
+                );
+
+            /*
+            * Aguarda a inicialização completa.
+            */
+            if (
+                !camera ||
+                !target.object3D
+            ) {
+                return;
+            }
+
+            /*
+            * Atualiza as matrizes antes do cálculo.
+            */
+            target.object3D.updateMatrixWorld(
+                true
+            );
+            camera.updateMatrixWorld(
+                true
+            );
+
+            /*
+            * Recalcula a posição de cada botão.
+            */
+            hotspots.forEach(
+                (button) => {
+                    /*
+                    * Cria o ponto local relativo ao target.
+                    */
+                    const localPoint =
+                        new THREE.Vector3(
+                            Number(button.dataset.x),
+                            Number(button.dataset.y),
+                            Number(button.dataset.z)
+                        );
+
+
+                    /*
+                    * Converte de coordenadas locais
+                    * para coordenadas do mundo 3D.
+                    */
+                    const worldPoint =
+                        target.object3D.localToWorld(
+                            localPoint
+                        );
+
+                    /*
+                    * Projeta o ponto usando a câmera.
+                    */
+                    const projectedPoint =
+                        worldPoint
+                            .clone()
+                            .project(camera);
+
+                    /*
+                    * Converte -1..+1 para pixels.
+                    */
+                    const screenX =
+                        (
+                            projectedPoint.x * 0.5 +
+                            0.5
+                        ) *
+                        window.innerWidth;
+
+                    const screenY =
+                        (
+                            -projectedPoint.y * 0.5 +
+                            0.5
+                        ) *
+                        window.innerHeight;
+
+                    /*
+                    * Posiciona o botão HTML.
+                    */
+                    button.style.left =
+                        `${screenX}px`;
+                    button.style.top =
+                        `${screenY}px`;
+
+                    /*
+                    * Evita exibir botões fora da área útil.
+                    */
+                    const insideScreen =
+                        projectedPoint.z > -1 &&
+                        projectedPoint.z < 1 &&
+                        screenX > -80 &&
+                        screenX < window.innerWidth + 80 &&
+                        screenY > -80 &&
+                        screenY < window.innerHeight + 80;
+
+                    button.style.visibility =
+                        insideScreen
+                            ? "visible"
+                            : "hidden";
+                }
+            );
+        }
+
+        /* =========================================================
+        13. INICIA A ATUALIZAÇÃO DOS HOTSPOTS
+        ========================================================= */
+
+        updateHotspotPositions();
+    }
+);

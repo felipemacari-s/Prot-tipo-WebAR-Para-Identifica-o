@@ -1,68 +1,92 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-  />
-  <title>RA — Manutenção Industrial | ROBO-01</title>
-
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- A-Frame e MindAR (versões fixas) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+      
+    <meta charset="UTF-8">
+      
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+      <title>RA | Manual Interativo do Torno CNC</title>
+      <!-- 
+  =========================================================
+  CSS DA INTERFACE
+  ========================================================= -->
+      
+    <link rel="stylesheet" href="static/css/style.css">
+      <!-- 
+  =========================================================
+  BIBLIOTECAS DA REALIDADE AUMENTADA
+  A-Frame: cena 3D
+  MindAR: reconhecimento e rastreamento do target
+  ========================================================= 
+  -->
+      
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+      
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+      
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+      
+    <script>eruda.init();</script>
 </head>
 
 <body>
-  <!-- Cena de Realidade Aumentada -->
-  <a-scene
-    id="ar-scene"
-    mindar-image="imageTargetSrc: ./assets/robo.mind; autoStart: true; uiLoading: no; uiScanning: no; uiError: no;"
-    color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights: true"
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false"
-  >
-    <a-camera
-      id="ar-camera"
-      position="0 0 0"
-      look-controls="enabled: false"
-    ></a-camera>
+      <header id="hud">
+            <div class="hud-text">
+                  <strong>ROBÔ INDUSTRIAL</strong>
+                  <span id="status">Toque em INICIAR para habilitar a câmera</span>
+                </div>
+            <!-- Transformado em botão -->
+            <button id="badge"
+                  style="cursor: pointer; border: none; pointer-events: auto; position: relative; z-index: 999999">▶
+                  INICIAR</button>
+          </header>
+      <div id="hotspot-layer">
+            <button class="hotspot" type="button" data-topic="cabeca" data-x="0.00" data-y="0.10" data-z="0.03"
+                  aria-label="Cabeça e sensores">
+                  1
+                </button>
+            <button class="hotspot" type="button" data-topic="tronco" data-x="0.00" data-y="0.04" data-z="0.03"
+                  aria-label="Tronco e logotipo">
+                  2
+                </button>
+            <button class="hotspot" type="button" data-topic="braco" data-x="-0.15" data-y="-0.05" data-z="0.03"
+                  aria-label="Ferramenta de montagem">
+                  3
+                </button>
 
-    <!-- Target: imagem do robô (targetIndex 0 do arquivo .mind) -->
-    <a-entity id="target" mindar-image-target="targetIndex: 0"></a-entity>
-  </a-scene>
+            <button class="hotspot hotspot-danger" type="button" data-topic="mao" data-x="0.15" data-y="-0.05"
+            data-z="0.03"       aria-label="Mão mecânica esquerda">
+                  4
+                </button>
+          </div>
+      <section id="info-panel" class="info-panel hidden" aria-live="polite">
+            <button id="close-panel" class="close-button" type="button" aria-label="Fechar painel">
+                </button>
+            <small>PONTO DO TORNO</small>
+            <h2 id="info-title">
+                  Componente
+                </h2>
+            <p id="info-text">
+                  Descrição.
+                </p>
+            <p id="info-detail" class="detail">
+                  Detalhe.
+                </p>
+          </section>
 
-  <!-- Interface sobreposta à câmera -->
-  <div id="ui">
-    <header id="topbar">
-      <span id="badge">INICIANDO</span>
-      <span id="equip-id">ROBO-01</span>
-    </header>
+      <a-scene id="ar-scene" ar-event-listener
+            mindar-image="imageTargetSrc: static/assets/targets/robo.mind; autoStart: false;" color-space="sRGB"
+            renderer="colorManagement: true;" vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false" embedded>
+            <a-camera id="ar-camera" position="0 0 0" look-controls="enabled: false">
+                </a-camera>
+            <a-entity id="target" mindar-image-target="targetIndex: 0">
+                </a-entity>
 
-    <p id="status">Iniciando câmera...</p>
-
-    <!--
-      Hotspots: posição em coordenadas locais do target.
-      No MindAR, a largura da imagem-alvo vale 1 unidade (x de -0.5 a 0.5)
-      e a altura vale (altura/largura) da imagem. Ajuste data-x/y/z testando.
-    -->
-    <button class="hotspot" data-topic="base" data-x="-0.30" data-y="-0.30" data-z="0" aria-label="Base e armário de controle">1</button>
-    <button class="hotspot" data-topic="braco" data-x="0.00" data-y="0.05" data-z="0" aria-label="Braço articulado e punho">2</button>
-    <button class="hotspot" data-topic="efetuador" data-x="0.30" data-y="0.25" data-z="0" aria-label="Efetuador final">3</button>
-    <button class="hotspot hotspot-telemetria" data-topic="telemetria" data-x="0.35" data-y="-0.30" data-z="0" aria-label="Telemetria">4</button>
-
-    <!-- Painel de informações -->
-    <section id="info-panel" class="hidden" aria-live="polite">
-      <button id="close-panel" aria-label="Fechar painel">&times;</button>
-      <h2 id="info-title"></h2>
-      <p id="info-text"></p>
-      <p id="info-detail"></p>
-    </section>
-  </div>
-
-  <script src="app.js"></script>
+          </a-scene>
+      
+    <script src="static/js/app.js"></script>
 </body>
+
 </html>
